@@ -2,8 +2,7 @@
 
 ## AI Usage
 
-I used an AI coding assistant (Claude, via Claude Code) throughout, but deliberately in a
-"reader and rubber-duck" role rather than a "find-and-fix-the-bug" role. The honest split:
+I used an AI coding assistant (Claude, via Claude Code) throughout, but deliberately in a "reader and rubber-duck" role rather than a "find-and-fix-the-bug" role. The honest split:
 AI was most valuable for **navigation and comprehension**, occasionally useful for
 **confirming a single fact**, and something I intentionally *did not* trust for
 **diagnosis** — every root cause below I confirmed by reading the code and running it
