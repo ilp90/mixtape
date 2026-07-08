@@ -1,5 +1,52 @@
 # Mixtape Bug Hunt — Submission
 
+## AI Usage
+
+I used an AI coding assistant (Claude, via Claude Code) throughout, but deliberately in a
+"reader and rubber-duck" role rather than a "find-and-fix-the-bug" role. The honest split:
+AI was most valuable for **navigation and comprehension**, occasionally useful for
+**confirming a single fact**, and something I intentionally *did not* trust for
+**diagnosis** — every root cause below I confirmed by reading the code and running it
+myself. Below is where it actually helped, and where it didn't.
+
+**Codebase navigation (Milestone 1).** I had the AI summarize each service file's
+responsibility and trace two call chains (rate-a-song and view-a-playlist) from route →
+service → model. This built the codebase map quickly. I verified each summary against the
+actual files — the model correctly identified the strict route→service delegation pattern
+and the `playlist_entries.position` ordering column, both of which I confirmed by reading
+`models.py` and the route files rather than taking on faith.
+
+**Reproduction (Milestone 2).** The most important thing AI did here was help me *not*
+chase a phantom bug. My first-pass plan included Issue #3 (search duplicates). Rather than
+trust the "outerjoin causes duplicates" theory, I reproduced it — `GET /songs/search?q=Crown`
+returned `count: 1`, and all `test_search.py` tests passed. I then confirmed *why*: on
+SQLAlchemy 2.0, legacy `Query(Song).all()` auto-de-duplicates full entities by primary key,
+so the fan-out never surfaces. This is a concrete case where the plausible-sounding
+diagnosis was wrong and only running the code revealed it — so I swapped #3 for #1.
+
+**Per-bug debugging (Milestone 3):**
+- **#1 (streak):** I found and read the over-constrained `if` branch myself. I used AI only
+  to confirm one narrow fact — that Python's `datetime.weekday()` maps Sunday to `6` (vs
+  `isoweekday()`'s Sunday=7) — which pinned `!= 6` as specifically a Sunday exclusion. I
+  verified the fix by re-running the streak tests, checking both the Sunday-increments and
+  skipped-day-still-resets cases.
+- **#5 (playlist):** No AI needed for diagnosis. The `songs[:-1]` slice is unambiguous on a
+  plain read; AI added nothing a careful read didn't.
+- **#4 (notification):** I used the "compare two similar blocks" pattern — I asked the AI to
+  contrast `add_to_playlist` and `rate_song`. It confirmed my own reading that the trailing
+  guarded `create_notification` call exists in the former and is simply absent from the
+  latter. I wrote the fix to mirror the existing pattern and verified with HTTP scenarios
+  (non-sharer notifies, self-rating doesn't, re-rating notifies again).
+
+**Where AI was incomplete or would have misled me.** (1) The #3 "outerjoin duplicates"
+theory is exactly the kind of plausible-but-wrong answer that surfaces when you ask AI to
+diagnose before reproducing — the ORM's auto-uniquing behavior is version-specific context
+the theory ignored, and only running the query exposed it. (2) AI has no view into the live
+database or the seeded state, so every reproduction (tag counts, playlist entry counts,
+sharer/rater IDs) I gathered by querying the DB and hitting real endpoints myself. The
+workflow I stuck to was: **I find/read the code → AI helps me understand or confirm one fact
+→ I verify by running it.** Fixing before verifying was never on the table.
+
 ## Milestone 1: Codebase Map
 
 Mixtape is a Flask + SQLAlchemy social music app. Friends share songs, rate them,
